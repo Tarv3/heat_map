@@ -1,0 +1,9 @@
+[package]
+name = "heat_map"
+version = "0.1.0"
+authors = ["Josh <tarv360@gmail.com>"]
+
+[dependencies]
+glium = "0.22"
+image = "0.19"
+csv = "1"
