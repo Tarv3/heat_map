@@ -1,12 +1,15 @@
-use csv::{ReaderBuilder, Reader};
-use csv::StringRecord;
-use std::marker::PhantomData;
+use self::errors::{HeaderAddErr, HeaderContainerErr};
+use csv::{StringRecord, StringRecordsIter};
+use csv::{Reader, ReaderBuilder};
 use std::cmp::PartialEq;
 use std::error::Error;
-use std::fmt::{Formatter, Display};
 use std::fmt;
+use std::fmt::{Display, Formatter};
+use std::io::Read;
+use std::marker::PhantomData;
 
 pub mod errors;
+pub mod read;
 
 #[derive(Debug, Clone)]
 pub struct Header {
@@ -15,10 +18,7 @@ pub struct Header {
 }
 impl Header {
     pub fn new(name: String, column: usize) -> Self {
-        Self {
-            name,
-            column,
-        }
+        Self { name, column }
     }
 }
 
@@ -40,17 +40,59 @@ impl PartialEq for Header {
     }
 }
 
-pub struct HeaderContainer(Vec<Header>);
+#[derive(Clone, Debug)]
+pub struct HeaderContainer {
+    headers: Vec<Header>,
+}
 
 impl HeaderContainer {
-    pub fn add_header(&mut self, header: Header) -> Result<(), HeaderAddErr> {
-        if self.0.contains(&header) {
-            Err(HeaderAddErr::new(header))
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            headers: Vec::with_capacity(capacity),
         }
-        else {
-            self.0.push(header);
+    }
+    pub fn from_record<'a>(
+        headers: &'a StringRecord,
+        names: &[&'a str],
+        reusable_vec: &mut Vec<String>,
+    ) -> Result<HeaderContainer, HeaderContainerErr> {
+        reusable_vec.clear();
+        let mut container = HeaderContainer::with_capacity(names.len());
+        for &name in names {
+            if let Some(column) = header_contains(headers, name) {
+                let header = Header::new(String::from(name), column);
+                container.add_header(header);
+            } else {
+                reusable_vec.push(String::from(name));
+            }
+        }
+        if reusable_vec.is_empty() {
+            return Ok(container);
+        } else {
+            return Err(HeaderContainerErr::new(
+                reusable_vec.clone(),
+                headers.clone(),
+            ));
+        }
+    }
+    pub fn add_header(&mut self, header: Header) -> Result<(), HeaderAddErr> {
+        if self.headers.contains(&header) {
+            Err(HeaderAddErr::new(header))
+        } else {
+            self.headers.push(header);
             Ok(())
         }
+    }
+    pub fn header_count(&self) -> usize {
+        self.headers.len()
+    }
+    pub fn column_with_name(&self, name: &str) -> Option<usize> {
+        for header in &self.headers {
+            if header.name.as_str() == name {
+                return Some(header.column);
+            }
+        }
+        None
     }
 }
 
@@ -63,4 +105,13 @@ pub fn header_contains(headers: &StringRecord, name: &str) -> Option<usize> {
     None
 }
 
-pub fn header_from_record(headers: &StringRecord, names: impl Iterator<Item = &str>) -> Result<HeaderContainer, 
+pub trait FromStringRecord: Sized {
+    fn field_count() -> usize;
+    fn correct_num_headers(headers: &HeaderContainer) -> bool {
+        Self::field_count() == headers.header_count()
+    }
+    fn from_string_records<T: Read>(
+        headers: &HeaderContainer,
+        records: &mut StringRecordsIter<T>,
+    ) -> Result<Vec<Self>, Box<Error>>;
+}
