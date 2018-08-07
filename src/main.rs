@@ -2,6 +2,10 @@
 extern crate glium;
 extern crate csv;
 extern crate image;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+
 
 pub mod csv_read;
 pub mod data;
@@ -29,9 +33,10 @@ use window::Window;
 use csv_read::read::{get_temp_stations, TempStation};
 use std::fs::{read_dir, remove_file, File};
 use std::io::prelude::Write;
+use csv::{Writer, WriterBuilder};
 
 fn main() {
-    reader_test(1000);
+    reader_test(20000);
 }
 
 fn gen_random_image(display: &Display, path: impl AsRef<Path>) -> CompressedSrgbTexture2d {
@@ -77,27 +82,28 @@ fn gl_test() {
 }
 
 fn reader_test(file_count: usize) {
-    remove_file("Data.txt");
+    remove_file("Data.csv");
 
-    let mut buffer = File::create("Data.txt").expect("Couldnt create file");
-
+    let mut buffer = File::create("Data.csv").expect("Couldnt create file");
+    let mut wtr = WriterBuilder::new().has_headers(false).from_writer(buffer);
+    wtr.write_record(&["YEAR", "MONTH", "DAY", "LONGITUDE", "LATITUDE", "ELEVATION", "TAVG"]);
     for (i, dir) in read_dir("F:/Uni/Grand Challenges/Data/gsom-latest")
         .unwrap()
         .enumerate()
     {
-        if i == file_count {
-            break;
+        if i % 1000 == 1 {
+            println!("{}", i);
         }
         let dir = dir.unwrap();
         if let Ok(test) = get_temp_stations(dir.path()) {
             for value in test {
-                buffer.write_fmt(format_args!("{:?}\n", value));
+                wtr.serialize(value).expect("Failed");
             }
         }
         else {
             continue;
         }
 
-        
     }
+    wtr.flush().expect("Flush failed");
 }

@@ -7,3 +7,5 @@ authors = ["Josh <tarv360@gmail.com>"]
 glium = "0.22"
 image = "0.19"
 csv = "1"
+serde = "1"
+serde_derive = "1"

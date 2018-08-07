@@ -1,4 +1,4 @@
-use self::errors::{HeaderAddErr, HeaderContainerErr};
+use self::errors::{HeaderAddErr, HeaderContainerErr, ColumnMissing};
 use csv::{StringRecord, StringRecordsIter};
 use csv::{Reader, ReaderBuilder};
 use std::cmp::PartialEq;
@@ -86,13 +86,13 @@ impl HeaderContainer {
     pub fn header_count(&self) -> usize {
         self.headers.len()
     }
-    pub fn column_with_name(&self, name: &str) -> Option<usize> {
+    pub fn column_with_name(&self, name: &str) -> Result<usize, ColumnMissing> {
         for header in &self.headers {
             if header.name.as_str() == name {
-                return Some(header.column);
+                return Ok(header.column);
             }
         }
-        None
+        Err(ColumnMissing::new(String::from(name)))
     }
 }
 
