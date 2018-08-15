@@ -23,20 +23,11 @@ impl FromStr for Date {
         let mut year = None;
         let mut month = None;
         let mut day = None;
-        for (i, number) in s.split('-').enumerate() {
-            if i == 0 {
-                year = Some(number.parse::<u32>()?);
-            }
-            else if i == 1 {
-                month = Some(number.parse::<u32>()?);
-            }
-            else if i == 2 {
-                day = Some(number.parse::<u32>()?);
-            }
-            else {
-                break; 
-            }
-        }
+        let mut split = s.split('-');
+        year = split.next().and_then(|x| x.parse().ok());
+        month = split.next().and_then(|x| x.parse().ok());
+        day = split.next().and_then(|x| x.parse().ok());
+
         return Ok(Self {
             year,
             month,

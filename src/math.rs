@@ -45,11 +45,11 @@ impl<T: Num> Range<T> {
         self.to - self.from
     }
     pub fn contains(&self, test: T) -> bool {
-        self.from <= test && self.to >= test
+        self.from < test && self.to > test
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Point<T: Num> {
     pub x: T,
     pub y: T,

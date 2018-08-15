@@ -61,7 +61,7 @@ impl HeaderContainer {
         for &name in names {
             if let Some(column) = header_contains(headers, name) {
                 let header = Header::new(String::from(name), column);
-                container.add_header(header);
+                container.add_header(header).expect("Repeated header");
             } else {
                 reusable_vec.push(String::from(name));
             }
