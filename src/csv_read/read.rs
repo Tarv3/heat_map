@@ -1,6 +1,6 @@
-use csv::{Reader, StringRecord, StringRecordsIter};
-use csv_read::errors::{ColumnMissing, IncorrectColumnsErr};
-use csv_read::{FromStringRecord, Header, HeaderContainer};
+use csv::{Reader, StringRecordsIter};
+use csv_read::errors::{IncorrectColumnsErr};
+use csv_read::{FromStringRecord, HeaderContainer};
 use std::error::Error;
 use std::io::Read;
 use std::path::Path;
@@ -20,13 +20,10 @@ impl FromStr for Date {
     
     // Has to be in form year-month-day
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut year = None;
-        let mut month = None;
-        let mut day = None;
         let mut split = s.split('-');
-        year = split.next().and_then(|x| x.parse().ok());
-        month = split.next().and_then(|x| x.parse().ok());
-        day = split.next().and_then(|x| x.parse().ok());
+        let year = split.next().and_then(|x| x.parse().ok());
+        let month = split.next().and_then(|x| x.parse().ok());
+        let day = split.next().and_then(|x| x.parse().ok());
 
         return Ok(Self {
             year,

@@ -1,12 +1,10 @@
 use self::errors::{HeaderAddErr, HeaderContainerErr, ColumnMissing};
 use csv::{StringRecord, StringRecordsIter};
-use csv::{Reader, ReaderBuilder};
 use std::cmp::PartialEq;
 use std::error::Error;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::io::Read;
-use std::marker::PhantomData;
 
 pub mod errors;
 pub mod read;

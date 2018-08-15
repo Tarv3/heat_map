@@ -1,6 +1,6 @@
 use glium::backend::glutin::Display;
 use glium::glutin::{
-    dpi::LogicalSize, ContextBuilder, ElementState, Event, EventsLoop, KeyboardInput,
+    dpi::LogicalSize, ContextBuilder, ElementState, Event, EventsLoop,
     VirtualKeyCode, WindowBuilder, WindowEvent,
 };
 
@@ -25,7 +25,7 @@ impl Window {
         }
 
         let context = ContextBuilder::new().with_vsync(vsync);
-        let mut display = Display::new(window, context, events_loop).unwrap();
+        let display = Display::new(window, context, events_loop).unwrap();
 
         Window {
             display,

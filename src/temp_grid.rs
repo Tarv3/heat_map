@@ -1,7 +1,7 @@
 use csv::Reader;
 use data::{DataPoint, YearlyData};
 use grid::{Grid, HeatMap};
-use math::{Point, Range, RangeBox};
+use math::{Point, RangeBox};
 use std::error::Error;
 use std::path::Path;
 use glium::VertexBuffer;
@@ -63,9 +63,8 @@ impl TemperaturePoint {
 pub type TemperatureGrid = HeatMap<YearlyData<f32>>;
 
 impl TemperatureGrid {
-    pub fn new_temperature_grid(x: usize, y: usize) -> Self {
-        let grid = Grid::new(x, y, YearlyData::new());
-        let range = RangeBox::new(Range::new(-180.0, 180.0), Range::new(-90.0, 90.0));
+    pub fn new_temperature_grid(dimensions: (usize, usize), range: RangeBox<f32>) -> Self {
+        let grid = Grid::new(dimensions.0, dimensions.1, YearlyData::new());
         HeatMap::new(grid, range)
     }
 
@@ -87,11 +86,11 @@ impl TemperatureGrid {
     }
 }
 
-pub fn temp_heat_map_from_data(x: usize, y: usize, path: impl AsRef<Path>) -> Result<TemperatureGrid, Box<Error>> {
+pub fn temp_heat_map_from_data(dimensions: (usize, usize), range: RangeBox<f32>, path: impl AsRef<Path>) -> Result<TemperatureGrid, Box<Error>> {
     let mut reader = Reader::from_path(path)?;
-    let mut temp_grid = TemperatureGrid::new_temperature_grid(x, y);
+    let mut temp_grid = TemperatureGrid::new_temperature_grid(dimensions, range);
     for (i, result) in reader.deserialize().enumerate() {
-        if i % 100000 == 0 {
+        if i % 1000000 == 0 {
             println!("{}", i);
         }
         let record: CsvRecord = result?;

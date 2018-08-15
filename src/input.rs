@@ -1,4 +1,4 @@
-use glium::glutin::{ElementState, Event, EventsLoop, KeyboardInput, VirtualKeyCode, WindowEvent};
+use glium::glutin::{ElementState, Event, VirtualKeyCode, WindowEvent};
 
 pub fn take_input(event: &Event, contrast: &mut f32) {
     match event {

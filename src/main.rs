@@ -11,33 +11,29 @@ extern crate serde_derive;
 pub mod csv_read;
 pub mod data;
 pub mod grid;
+pub mod input;
 pub mod math;
 pub mod render;
 pub mod temp_grid;
 pub mod window;
-pub mod input;
 
-use data::DataPoint;
 use glium::backend::glutin::Display;
 use glium::draw_parameters::DrawParameters;
 use glium::glutin::EventsLoop;
 use glium::index::{
-    NoIndices, PrimitiveType::{LineStrip, Points, TrianglesList},
+    NoIndices, PrimitiveType::{TrianglesList},
 };
-use glium::texture::{CompressedMipmapsOption, CompressedSrgbTexture2d, RawImage2d};
-use glium::uniforms::EmptyUniforms;
+use glium::texture::{CompressedSrgbTexture2d, RawImage2d};
 use glium::{draw_parameters::Blend, Program, Surface};
-use grid::{Grid, HeatMap};
-use math::{Point, Range, RangeBox};
+use math::{Range, RangeBox};
 use render::screen_box;
 use std::path::Path;
-use temp_grid::{point_buffer, temp_heat_map_from_data, TemperatureGrid};
+use temp_grid::{temp_heat_map_from_data};
 use window::Window;
 
-use csv::{Writer, WriterBuilder};
-use csv_read::read::{get_temp_stations, TempStation};
+use csv::{WriterBuilder};
+use csv_read::read::{get_temp_stations};
 use std::fs::{read_dir, remove_file, File};
-use std::io::prelude::Write;
 
 fn main() {
     gl_test();
@@ -59,22 +55,16 @@ fn gl_test() {
         include_str!("shaders/fragment.glsl"),
         None,
     ).unwrap();
+    let texture;
     let buffer = screen_box(&window.display);
-    // let points = point_buffer(&window.display, "Data.csv").unwrap();
-    // let texture = gen_random_image(&window.display, "Birds.jpg");
-    let grid = temp_heat_map_from_data(400, 200, "Data.csv")
-        .unwrap()
-        .average_temp_grid();
-    let texture = grid.into_texture(&window.display);
-
+    {
+        let grid = temp_heat_map_from_data((500, 250), RangeBox::new(Range::new(-165.0, -50.0), Range::new(15.0, 60.0)), "Data.csv")
+            .unwrap()
+            .average_temp_grid();
+        texture = grid.into_texture(&window.display);
+    }
 
     let mut contrast = 50.0;
-    let uniforms = uniform! {
-        map: &texture,
-        colour1: [0.0, 0.0, 0.0, 1.0f32],
-        colour2: [1.0, 1.0, 1.0, 1.0f32],
-        contrast: contrast
-    };
     let draw_parameters = DrawParameters {
         blend: Blend::alpha_blending(),
         ..Default::default()
@@ -106,10 +96,10 @@ fn gl_test() {
     }
 }
 
-fn reader_test(file_count: usize) {
+fn _reader_test(_file_count: usize) {
     remove_file("Data.csv").expect("Failed to remove data file");
 
-    let mut buffer = File::create("Data.csv").expect("Couldnt create file");
+    let buffer = File::create("Data.csv").expect("Couldnt create file");
     let mut wtr = WriterBuilder::new().has_headers(false).from_writer(buffer);
     wtr.write_record(&[
         "YEAR",
