@@ -78,3 +78,55 @@ impl<T: Copy + Add<T, Output = T> + AddAssign + Div<f32, Output = T>> YearlyData
         }
     }
 }
+
+#[derive(Debug, Deserialize)]
+pub struct CsvRecord {
+    #[serde(rename = "YEAR")]
+    year: Option<u32>,
+    #[serde(rename = "MONTH")]
+    month: Option<u32>,
+    #[serde(rename = "DAY")]
+    day: Option<u32>,
+    #[serde(rename = "LONGITUDE")]
+    longitude: Option<f32>,
+    #[serde(rename = "LATITUDE")]
+    latitude: Option<f32>,
+    #[serde(rename = "ELEVATION")]
+    elevation: Option<f32>,
+    #[serde(rename = "TAVG")]
+    avg_temp: f32,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct TemperaturePoint {
+    pub month: usize,
+    pub data: DataPoint<f32>,
+}
+
+impl TemperaturePoint {
+    pub fn new(month: usize, data: DataPoint<f32>) -> Self {
+        Self { month, data }
+    }
+    pub fn from(record: CsvRecord) -> Option<Self> {
+        let month;
+        let longitude;
+        let latitude;
+        match record.month {
+            Some(mon) => month = mon as usize,
+            None => return None,
+        }
+        match record.latitude {
+            Some(lat) => latitude = lat,
+            None => return None,
+        }
+        match record.longitude {
+            Some(long) => longitude = long,
+            None => return None,
+        }
+        let temp_avg = record.avg_temp;
+        Some(Self {
+            month,
+            data: DataPoint::new(Point::new(longitude, latitude), temp_avg),
+        })
+    }
+}

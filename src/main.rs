@@ -14,7 +14,6 @@ pub mod grid;
 pub mod input;
 pub mod math;
 pub mod render;
-pub mod temp_grid;
 pub mod window;
 
 use glium::backend::glutin::Display;
@@ -28,7 +27,7 @@ use glium::{draw_parameters::Blend, Program, Surface};
 use math::{Range, RangeBox};
 use render::screen_box;
 use std::path::Path;
-use temp_grid::{temp_heat_map_from_data};
+use grid::HeatMap;
 use window::Window;
 
 use csv::{WriterBuilder};
@@ -58,7 +57,7 @@ fn gl_test() {
     let texture;
     let buffer = screen_box(&window.display);
     {
-        let grid = temp_heat_map_from_data((500, 250), RangeBox::new(Range::new(-165.0, -50.0), Range::new(15.0, 60.0)), "Data.csv")
+        let grid = HeatMap::temp_heat_map_from_data((500, 250), RangeBox::new(Range::new(-165.0, -50.0), Range::new(15.0, 60.0)), "Data.csv")
             .unwrap()
             .average_temp_grid();
         texture = grid.into_texture(&window.display);
