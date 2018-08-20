@@ -1,14 +1,43 @@
 #version 400
 
 uniform sampler2D map;
-uniform vec4 colour1;
-uniform vec4 colour2;
+uniform sampler2D bwmap;
 uniform float contrast;
+uniform vec2 min_pos;
+uniform vec2 max_pos;
 
 in vec2 f_position;
 in vec2 f_tex_coord;
 
 out vec4 colour;
+
+vec3 hsv_to_rgb(in float hue) {
+    float h = hue * 360.0;
+    float x  = 1.0 - abs(mod(h / 60.0, 2.0) - 1.0);
+    vec3 colour;
+    if (h >= 0 && h < 60) {
+        colour = vec3(1, x, 0);
+    }
+    else if (h >= 60 && h < 120) {
+        colour = vec3(x, 1, 0);
+    }
+    else if (h >= 120 && h < 180) {
+        colour = vec3(0, 1, x);
+    }
+    else if (h >= 180 && h < 240) {
+        colour = vec3(0, x, 1);
+    }
+    else if (h >= 240 && h < 300) {
+        colour = vec3(x, 0, 1);
+    }
+    else if (h >= 300 && h < 360){
+        colour = vec3(1, 0, x);
+    }
+    else {
+        colour = vec3(0, 0, 1);
+    }
+    return(colour);
+}
 
 void main() {
     ivec2 dims = textureSize(map, 0);
@@ -17,6 +46,11 @@ void main() {
     float contrast_value = (259.0 * ( + 255.0))/(255.0 * (259.0 - contrast));
     float negative = min(0.0, value.x);
     float new_brightness = contrast_value * (value.x - 0.5) + 0.5;
-    colour = mix(mix(vec4(0.0, 0.0, 1.0, 1.0), vec4(0.95, 0.28, 0.08, 1.0), new_brightness), vec4(0.0, 0.0, 0.0, 1.0), -negative);
+    vec2 f_min_pos = (min_pos + vec2(180.0, 90)) / vec2(360, 180);
+    vec2 f_max_pos = (max_pos + vec2(180.0, 90)) / vec2(360, 180);
+    float tex_x = mix(f_min_pos.x, f_max_pos.x, f_tex_coord.x);
+    float tex_y = mix(f_min_pos.y, f_max_pos.y, f_tex_coord.y);
+
+    colour = vec4(texture(bwmap, vec2(tex_x, tex_y)).x * hsv_to_rgb(1 - new_brightness), 1.0);
 
 }

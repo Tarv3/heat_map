@@ -1,3 +1,4 @@
+use std::iter::Iterator;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 pub trait Num:
@@ -89,5 +90,52 @@ pub struct Dimensions<T: Num> {
 impl<T: Num> Dimensions<T> {
     pub fn new(x: T, y: T) -> Self {
         Self { x, y }
+    }
+}
+
+pub struct RectIter {
+    bottom_left: [i32; 2],
+    radius: i32,
+    index: i32,
+}
+
+impl RectIter {
+    pub fn new(centre: [i32; 2], radius: i32) -> Self {
+        Self {
+            bottom_left: [centre[0] - radius, centre[1] - radius],
+            radius,
+            index: 0,
+        }
+    }
+}
+
+impl Iterator for RectIter {
+    type Item = [i32; 2];
+
+    fn next(&mut self) -> Option<[i32; 2]> {
+        if self.index >= 8 * self.radius {
+            return None;
+        }
+
+        let index = self.index;
+        self.index += 1;
+        let bottom = index - (self.radius * 2 + 1);
+
+        if bottom < 0 {
+            return Some([self.bottom_left[0] + index, self.bottom_left[1]]);
+        } else {
+            let top = index - (6 * self.radius - 1);
+            if top >= 0 {
+                return Some([
+                    self.bottom_left[0] + top,
+                    self.bottom_left[1] + self.radius * 2,
+                ]);
+            } else {
+                return Some([
+                    self.bottom_left[0] + 2 * (bottom % 2) * self.radius,
+                    self.bottom_left[1] + bottom / 2 + 1,
+                ]);
+            }
+        }
     }
 }

@@ -7,6 +7,7 @@ extern crate image;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+extern crate rayon;
 
 pub mod csv_read;
 pub mod data;
@@ -19,26 +20,24 @@ pub mod window;
 use glium::backend::glutin::Display;
 use glium::draw_parameters::DrawParameters;
 use glium::glutin::EventsLoop;
-use glium::index::{
-    NoIndices, PrimitiveType::{TrianglesList},
-};
+use glium::index::{NoIndices, PrimitiveType::TrianglesList};
 use glium::texture::{CompressedSrgbTexture2d, RawImage2d};
 use glium::{draw_parameters::Blend, Program, Surface};
-use math::{Range, RangeBox};
+use grid::{Grid, HeatMap};
+use math::{Range, RangeBox, RectIter};
 use render::screen_box;
 use std::path::Path;
-use grid::HeatMap;
 use window::Window;
 
-use csv::{WriterBuilder};
-use csv_read::read::{get_temp_stations};
+use csv::WriterBuilder;
+use csv_read::read::get_temp_stations;
 use std::fs::{read_dir, remove_file, File};
 
 fn main() {
     gl_test();
 }
 
-fn gen_random_image(display: &Display, path: impl AsRef<Path>) -> CompressedSrgbTexture2d {
+fn load_image(display: &Display, path: impl AsRef<Path>) -> CompressedSrgbTexture2d {
     let image = image::open(path).expect("Cannot open image").to_rgba();
     let dims = image.dimensions();
     let raw = RawImage2d::from_raw_rgba_reversed(&image.into_raw(), dims);
@@ -54,15 +53,30 @@ fn gl_test() {
         include_str!("shaders/fragment.glsl"),
         None,
     ).unwrap();
+    let min_pos = [-180.0, -90.0];
+    let max_pos = [180.0, 90.0];
     let texture;
     let buffer = screen_box(&window.display);
     {
-        let grid = HeatMap::temp_heat_map_from_data((500, 250), RangeBox::new(Range::new(-165.0, -50.0), Range::new(15.0, 60.0)), "Data.csv")
-            .unwrap()
-            .average_temp_grid();
-        texture = grid.into_texture(&window.display);
+        let mut grid = HeatMap::temp_heat_map_from_data(
+            (1200, 600),
+            RangeBox::new(Range::new(min_pos[0], max_pos[0]), Range::new(min_pos[1], max_pos[1])),
+            "Data.csv",
+        ).unwrap()
+            .variance_grid()
+            .fill_values_nearest();
+
+        texture = grid.into_texture_with_function(&window.display, |grid, index, (min, max)| {
+            let min = min.unwrap();
+            let max = max.unwrap();
+            match grid[index] {
+                Some(num) => ((num - min) / (max - min) + 1.0) * 0.5,
+                None => 0.0,
+            }
+        });
     }
 
+    let map_texture = load_image(&window.display, "Pure B and W Map.png");
     let mut contrast = 50.0;
     let draw_parameters = DrawParameters {
         blend: Blend::alpha_blending(),
@@ -76,8 +90,9 @@ fn gl_test() {
         });
         let uniforms = uniform! {
             map: &texture,
-            colour1: [0.0, 0.0, 0.0, 1.0f32],
-            colour2: [1.0, 1.0, 1.0, 1.0f32],
+            bwmap: &map_texture,
+            min_pos: min_pos,
+            max_pos: max_pos,
             contrast: contrast
         };
         let mut target = window.display.draw();

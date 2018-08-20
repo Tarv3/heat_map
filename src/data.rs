@@ -1,4 +1,5 @@
 use math::Point;
+use std::cmp::PartialOrd;
 use std::ops::{Add, AddAssign, Div};
 
 #[derive(Copy, Clone, Debug)]
@@ -48,7 +49,7 @@ pub struct YearlyData<T: Copy + Add<T, Output = T> + AddAssign + Div<f32, Output
     pub montly_data: [CSum<T>; 12],
 }
 
-impl<T: Copy + Add<T, Output = T> + AddAssign + Div<f32, Output = T>> YearlyData<T> {
+impl YearlyData<f32> {
     pub fn new() -> Self {
         Self {
             montly_data: [CSum::new(); 12],
@@ -56,25 +57,48 @@ impl<T: Copy + Add<T, Output = T> + AddAssign + Div<f32, Output = T>> YearlyData
     }
 
     // Month has to be between 1 - 12 inclusive
-    pub fn add_to(&mut self, data: T, month: usize) {
+    pub fn add_to(&mut self, data: f32, month: usize) {
         self.montly_data[month - 1].add(data);
     }
-    
-    pub fn yearly_average(&self) -> Option<T> {
+
+    pub fn yearly_average(&self) -> Option<f32> {
         let mut none_count = 0;
         let mut average = None;
-        for month in  self.montly_data.iter() {
+
+        for month in self.montly_data.iter() {
             match month.average() {
                 Some(number) => match average {
                     Some(ref mut value) => *value += number,
-                    None => average = Some(number)
+                    None => average = Some(number),
                 },
-                None => none_count += 1
+                None => none_count += 1,
             }
         }
-        match average {
-            Some(value) => Some(value / (12 - none_count) as f32),
-            None => None
+        if none_count == 0 {
+            match average {
+                Some(value) => {
+                    let avg = value / (12 - none_count) as f32;
+                    return Some(avg);
+                }
+                None => return None,
+            }
+        }
+        None
+    }
+
+    pub fn variance(&self) -> Option<f32> {
+        match self.yearly_average() {
+            Some(avg) => {
+                let mut sum = 0.0;
+                for &month in &self.montly_data {
+                    match month.average() {
+                        Some(month_avg) => sum += (month_avg - avg).powi(2),
+                        None => return None,
+                    }
+                }
+                Some((sum / 12.0).sqrt())
+            }
+            None => None,
         }
     }
 }
@@ -108,25 +132,10 @@ impl TemperaturePoint {
         Self { month, data }
     }
     pub fn from(record: CsvRecord) -> Option<Self> {
-        let month;
-        let longitude;
-        let latitude;
-        match record.month {
-            Some(mon) => month = mon as usize,
-            None => return None,
-        }
-        match record.latitude {
-            Some(lat) => latitude = lat,
-            None => return None,
-        }
-        match record.longitude {
-            Some(long) => longitude = long,
-            None => return None,
-        }
         let temp_avg = record.avg_temp;
         Some(Self {
-            month,
-            data: DataPoint::new(Point::new(longitude, latitude), temp_avg),
+            month: record.month? as usize,
+            data: DataPoint::new(Point::new(record.longitude?, record.latitude?), temp_avg),
         })
     }
 }

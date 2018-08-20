@@ -1,16 +1,17 @@
-use data::{DataPoint, TemperaturePoint, CsvRecord, YearlyData};
+use csv::Reader;
+use data::{CsvRecord, DataPoint, TemperaturePoint, YearlyData};
 use glium::backend::glutin::Display;
 use glium::texture::{texture2d::Texture2d, RawImage2d};
-use math::{Dimensions, Point, RangeBox};
+use math::{Dimensions, Point, RangeBox, RectIter};
+use rayon::prelude::*;
+use std::error::Error;
 use std::ops::{Index, IndexMut};
 use std::path::Path;
-use std::error::Error;
-use csv::Reader;
-
 
 // Top left value will be stored first and the data will be separated by each horizontal layer
 // Eg. [1 2 3 4 5] = [1 2 3 4 5 1 2 3 4 5]
 //     [1 2 3 4 5]
+#[derive(Clone)]
 pub struct Grid<T: Copy> {
     // Ratio in terms of vertical / horizontal
     pub horizontal: usize,
@@ -23,9 +24,10 @@ impl<T: Copy> Grid<T> {
         Self {
             horizontal,
             vertical,
-            values: vec![default_value; (vertical + 1) * (horizontal + 1)],
+            values: vec![default_value; (vertical) * (horizontal)],
         }
     }
+
     pub fn new_from_values(horizontal: usize, vertical: usize, values: Vec<T>) -> Self {
         Self {
             horizontal,
@@ -33,8 +35,29 @@ impl<T: Copy> Grid<T> {
             values,
         }
     }
+
     pub fn values_ref(&self) -> &[T] {
         &self.values
+    }
+
+    pub fn index_to_position(&self, index: usize) -> [usize; 2] {
+        [index % self.horizontal, index / self.horizontal]
+    }
+
+    pub fn position_to_index(&self, position: [usize; 2]) -> usize {
+        position[0] + position[1] * self.horizontal
+    }
+
+    pub fn checked_index(&self, position: [i32; 2]) -> Option<T> {
+        if position[0] < self.horizontal as i32
+            && position[0] >= 0
+            && position[1] < self.vertical as i32
+            && position[1] >= 0
+        {
+            return Some(self[[position[0] as usize, position[1] as usize]]);
+        } else {
+            return None;
+        }
     }
 }
 
@@ -117,8 +140,8 @@ impl Grid<Option<f32>> {
         let max = self.max_option().unwrap();
         let min = self.min_option().unwrap();
         let mut rgb = Vec::with_capacity(self.values.len() * 3);
-        for y in 0..self.vertical + 1 {
-            for x in 0..self.horizontal + 1 {
+        for y in 0..self.vertical {
+            for x in 0..self.horizontal {
                 let to_push = match self[[x, y]] {
                     Some(temp) => ((temp - min) / (max - min) + 1.0) * 0.5,
                     None => 0.0,
@@ -130,11 +153,94 @@ impl Grid<Option<f32>> {
         }
         Texture2d::new(
             display,
-            RawImage2d::from_raw_rgb(
-                rgb,
-                ((self.horizontal + 1) as u32, (self.vertical + 1) as u32),
-            ),
+            RawImage2d::from_raw_rgb(rgb, ((self.horizontal) as u32, (self.vertical) as u32)),
         ).expect("Failed to create texture")
+    }
+
+    pub fn into_texture_with_function<U>(&self, display: &Display, func: U) -> Texture2d
+    where
+        U: Fn(&Grid<Option<f32>>, [usize; 2], (Option<f32>, Option<f32>)) -> f32,
+    {
+        let max = self.max_option();
+        let min = self.min_option();
+        let mut rgb = Vec::with_capacity(self.values.len() * 3);
+        for y in 0..self.vertical {
+            for x in 0..self.horizontal {
+                let to_push = func(&self, [x, y], (min, max));
+                rgb.push(to_push);
+                rgb.push(to_push);
+                rgb.push(to_push);
+            }
+        }
+        Texture2d::new(
+            display,
+            RawImage2d::from_raw_rgb(rgb, ((self.horizontal) as u32, (self.vertical) as u32)),
+        ).expect("Failed to create texture")
+    }
+
+    pub fn find_closest_to(&self, index: usize, max_rad: i32) -> Option<f32> {
+        let mut value = None;
+        let mut smallest_dist = None;
+        let mut found = false;
+
+        let position = self.index_to_position(index);
+        let position = [position[0] as i32, position[1] as i32];
+
+        for i in 1..max_rad {
+            for point in RectIter::new(position, i) {
+                let option = match self.checked_index([point[0] as i32, point[1] as i32]) {
+                    Some(value) => value,
+                    None => continue,
+                };
+
+                if let Some(num) = option {
+                    found = true;
+                    let smallest = smallest_dist;
+                    let current_dist = point[0] * point[0] + point[1] * point[1];
+
+                    match smallest {
+                        Some(dist) => {
+                            if dist > current_dist {
+                                smallest_dist = Some(current_dist);
+                                value = Some(num);
+                            }
+                        }
+                        None => {
+                            smallest_dist = Some(current_dist);
+                            value = Some(num);
+                        }
+                    }
+                }
+            }
+            if found {
+                break;
+            }
+        }
+
+        return value;
+    }
+
+    pub fn fill_values_nearest(mut self) -> Grid<Option<f32>>{
+        let mut vec = Vec::with_capacity(self.values.len());
+        for (index, value) in self.values.iter().enumerate() {
+            vec.push((index, *value));
+        }
+
+        vec.par_iter_mut()
+            .for_each(|(index, value)| match self.values[*index] {
+                Some(_) => (),
+                None => {
+                    *value = self.find_closest_to(*index, 100);
+                   
+                }
+            });
+
+        let mut grid_vec = Vec::with_capacity(self.values.len());
+        for (index, value) in vec {
+            grid_vec.push(value);
+        }
+        self.values = grid_vec;
+        self
     }
 }
 
@@ -163,7 +269,6 @@ pub struct HeatMap<T: Copy> {
 }
 
 impl<T: Copy> HeatMap<T> {
-    
     pub fn new(grid: Grid<T>, range: RangeBox<f32>) -> Self {
         Self { grid, range }
     }
@@ -189,11 +294,14 @@ impl<T: Copy> HeatMap<T> {
                 (x_offset / unit_dims.x).round() as usize,
                 (y_offset / unit_dims.y).round() as usize,
             ];
+            if index[0] + index[1] * self.grid.horizontal >= self.grid.values.len() {
+                return None;
+            }
             return Some(index);
         }
         None
     }
-    
+
     pub fn add_data<S: Copy, U>(&mut self, datapoint: &DataPoint<S>, add_func: U)
     where
         U: Fn(&mut Grid<T>, [usize; 2], &S),
@@ -222,7 +330,6 @@ impl<T: Copy + PartialEq + PartialOrd> HeatMap<T> {
 }
 
 impl HeatMap<YearlyData<f32>> {
-
     pub fn new_temperature_grid(dimensions: (usize, usize), range: RangeBox<f32>) -> Self {
         let grid = Grid::new(dimensions.0, dimensions.1, YearlyData::new());
         HeatMap::new(grid, range)
@@ -245,15 +352,25 @@ impl HeatMap<YearlyData<f32>> {
         Grid::new_from_values(self.grid.horizontal, self.grid.vertical, average_temps)
     }
 
+    pub fn variance_grid(&self) -> Grid<Option<f32>> {
+        let mut variance = Vec::with_capacity(self.grid.values.len());
+        for yearly_temp in self.grid.values_ref() {
+            match yearly_temp.variance() {
+                Some(var) => variance.push(Some(var)),
+                None => variance.push(None),
+            }
+        }
+        Grid::new_from_values(self.grid.horizontal, self.grid.vertical, variance)
+    }
+
     pub fn temp_heat_map_from_data(
         dimensions: (usize, usize),
         range: RangeBox<f32>,
         path: impl AsRef<Path>,
     ) -> Result<Self, Box<Error>> {
-
         let mut reader = Reader::from_path(path)?;
         let mut temp_grid = Self::new_temperature_grid(dimensions, range);
-        
+
         for (i, result) in reader.deserialize().enumerate() {
             if i % 1000000 == 0 {
                 println!("{}", i);
