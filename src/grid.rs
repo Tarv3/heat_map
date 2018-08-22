@@ -138,7 +138,7 @@ impl Grid<Option<f32>> {
             println!("{:?}", item);
         }
     }
-    pub fn into_texture(&self, display: &Display, range: Option<Range<f32>>) -> Texture2d {
+    pub fn into_texture(&self, display: &Display, range: Option<Range<f32>>) -> (Texture2d, Range<f32>) {
         let max;
         let min;
         match range {
@@ -163,10 +163,11 @@ impl Grid<Option<f32>> {
                 rgb.push(to_push);
             }
         }
-        Texture2d::new(
+        (Texture2d::new(
             display,
             RawImage2d::from_raw_rgb(rgb, ((self.horizontal) as u32, (self.vertical) as u32)),
-        ).expect("Failed to create texture")
+        ).expect("Failed to create texture"),
+        Range::new(min, max))
     }
 
     pub fn into_texture_with_function<U>(&self, display: &Display, func: U) -> Texture2d

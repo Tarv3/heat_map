@@ -13,11 +13,11 @@ extern crate rayon;
 pub mod csv_read;
 pub mod data;
 pub mod grid;
+pub mod helper;
 pub mod input;
 pub mod math;
 pub mod render;
 pub mod window;
-pub mod helper;
 
 use glium::backend::glutin::Display;
 use glium::draw_parameters::DrawParameters;
@@ -27,13 +27,13 @@ use glium::texture::{CompressedSrgbTexture2d, RawImage2d};
 use glium::{draw_parameters::Blend, Program, Surface};
 use grid::HeatMap;
 use math::{Range, RangeBox};
-use render::screen_box;
+use render::{gradient_box, map_box};
 use std::path::Path;
 use window::Window;
 
-use helper::csv_to_bin;
 use csv::WriterBuilder;
 use csv_read::read::get_temp_stations;
+use helper::csv_to_bin;
 use std::fs::{read_dir, remove_file, File};
 
 fn main() {
@@ -56,24 +56,29 @@ fn gl_test() {
         include_str!("shaders/fragment.glsl"),
         None,
     ).unwrap();
+    let grad_program = Program::from_source(
+        &window.display,
+        include_str!("shaders/vertex.glsl"),
+        include_str!("shaders/gradient.glsl"),
+        None,
+    ).unwrap();
+    let buffer = map_box(&window.display);
+    let grad_buffer = gradient_box(&window.display);
+
     let min_pos = [-180.0, -90.0];
     let max_pos = [180.0, 90.0];
-    let texture;
-    let buffer = screen_box(&window.display);
-    {
-        let grid = HeatMap::temp_heat_map_from_csv(
-            (1200, 600),
-            RangeBox::new(
-                Range::new(min_pos[0], max_pos[0]),
-                Range::new(min_pos[1], max_pos[1]),
-            ),
-            "Data.csv",
-        ).unwrap()
-            .standard_dev_grid()
-            .fill_values_nearest();
+    let grid = HeatMap::temp_heat_map_from_csv(
+        (1200, 600),
+        RangeBox::new(
+            Range::new(min_pos[0], max_pos[0]),
+            Range::new(min_pos[1], max_pos[1]),
+        ),
+        "Data.csv",
+    ).unwrap()
+        .standard_dev_grid()
+        .fill_values_nearest();
 
-        texture = grid.into_texture(&window.display, None);
-    }
+    let (texture, range) = grid.into_texture(&window.display, None);
 
     let map_texture = load_image(&window.display, "Pure B and W Map.png");
     let mut contrast = 50.0;
@@ -105,7 +110,19 @@ fn gl_test() {
                 &draw_parameters,
             )
             .unwrap();
+        let uniforms = uniform! {
+            contrast: contrast
+        };
+
+        target
+            .draw(
+                &grad_buffer,
+                NoIndices(TrianglesList),
+                &grad_program,
+                &uniforms,
+                &draw_parameters,
+            )
+            .unwrap();
         target.finish().unwrap();
     }
 }
-

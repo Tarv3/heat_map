@@ -8,12 +8,23 @@ pub struct Vertex {
 }
 implement_vertex!(Vertex, position, tex_coord);
 
-pub fn screen_box(display: &Display) -> VertexBuffer<Vertex> {
+pub fn map_box(display: &Display) -> VertexBuffer<Vertex> {
     VertexBuffer::new(display, &vec![
         Vertex { position: [ -1.0, -1.0 ], tex_coord: [ 0.0, 0.0 ]},
-        Vertex { position: [ 1.0, 1.0 ], tex_coord: [ 1.0, 1.0 ]},
+        Vertex { position: [ 0.9, 1.0 ], tex_coord: [ 1.0, 1.0 ]},
         Vertex { position: [ -1.0, 1.0 ], tex_coord: [ 0.0, 1.0 ]},
         Vertex { position: [ -1.0, -1.0 ], tex_coord: [ 0.0, 0.0 ]},
+        Vertex { position: [ 0.9, -1.0 ], tex_coord: [ 1.0, 0.0 ]},
+        Vertex { position: [ 0.9, 1.0 ], tex_coord: [ 1.0, 1.0 ]},
+    ]).unwrap()
+}
+
+pub fn gradient_box(display: &Display) -> VertexBuffer<Vertex> {
+    VertexBuffer::new(display, &vec![
+        Vertex { position: [ 0.9, -1.0 ], tex_coord: [ 0.0, 0.0 ]},
+        Vertex { position: [ 1.0, 1.0 ], tex_coord: [ 1.0, 1.0 ]},
+        Vertex { position: [ 0.9, 1.0 ], tex_coord: [ 0.0, 1.0 ]},
+        Vertex { position: [ 0.9, -1.0 ], tex_coord: [ 0.0, 0.0 ]},
         Vertex { position: [ 1.0, -1.0 ], tex_coord: [ 1.0, 0.0 ]},
         Vertex { position: [ 1.0, 1.0 ], tex_coord: [ 1.0, 1.0 ]},
     ]).unwrap()
