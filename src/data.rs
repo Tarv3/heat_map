@@ -1,7 +1,7 @@
 use math::Point;
 use std::ops::{Add, AddAssign, Div};
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 pub struct DataPoint<T: Copy> {
     pub position: Point<f32>,
     pub data: T,
@@ -127,7 +127,7 @@ pub struct CsvRecord {
     avg_temp: f32,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 pub struct TemperaturePoint {
     pub month: usize,
     pub data: DataPoint<f32>,

@@ -7,6 +7,7 @@ extern crate image;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+extern crate bincode;
 extern crate rayon;
 
 pub mod csv_read;
@@ -16,6 +17,7 @@ pub mod input;
 pub mod math;
 pub mod render;
 pub mod window;
+pub mod helper;
 
 use glium::backend::glutin::Display;
 use glium::draw_parameters::DrawParameters;
@@ -23,12 +25,13 @@ use glium::glutin::EventsLoop;
 use glium::index::{NoIndices, PrimitiveType::TrianglesList};
 use glium::texture::{CompressedSrgbTexture2d, RawImage2d};
 use glium::{draw_parameters::Blend, Program, Surface};
-use grid::{HeatMap};
+use grid::HeatMap;
 use math::{Range, RangeBox};
 use render::screen_box;
 use std::path::Path;
 use window::Window;
 
+use helper::csv_to_bin;
 use csv::WriterBuilder;
 use csv_read::read::get_temp_stations;
 use std::fs::{read_dir, remove_file, File};
@@ -53,27 +56,23 @@ fn gl_test() {
         include_str!("shaders/fragment.glsl"),
         None,
     ).unwrap();
-    let min_pos = [-180.0, -70.0];
+    let min_pos = [-180.0, -90.0];
     let max_pos = [180.0, 90.0];
     let texture;
     let buffer = screen_box(&window.display);
     {
-        let grid = HeatMap::temp_heat_map_from_data(
-            (600, 300),
-            RangeBox::new(Range::new(min_pos[0], max_pos[0]), Range::new(min_pos[1], max_pos[1])),
+        let grid = HeatMap::temp_heat_map_from_csv(
+            (1200, 600),
+            RangeBox::new(
+                Range::new(min_pos[0], max_pos[0]),
+                Range::new(min_pos[1], max_pos[1]),
+            ),
             "Data.csv",
         ).unwrap()
             .standard_dev_grid()
             .fill_values_nearest();
 
-        texture = grid.into_texture_with_function(&window.display, |grid, index, (min, max)| {
-            let min = min.unwrap();
-            let max = max.unwrap();
-            match grid[index] {
-                Some(num) => ((num - min) / (max - min) + 1.0) * 0.5,
-                None => 0.0,
-            }
-        });
+        texture = grid.into_texture(&window.display, None);
     }
 
     let map_texture = load_image(&window.display, "Pure B and W Map.png");
@@ -110,35 +109,3 @@ fn gl_test() {
     }
 }
 
-fn _reader_test(_file_count: usize) {
-    remove_file("Data.csv").expect("Failed to remove data file");
-
-    let buffer = File::create("Data.csv").expect("Couldnt create file");
-    let mut wtr = WriterBuilder::new().has_headers(false).from_writer(buffer);
-    wtr.write_record(&[
-        "YEAR",
-        "MONTH",
-        "DAY",
-        "LONGITUDE",
-        "LATITUDE",
-        "ELEVATION",
-        "TAVG",
-    ]).expect("Failed to write headers");
-    for (i, dir) in read_dir("F:/Uni/Grand Challenges/Data/gsom-latest")
-        .unwrap()
-        .enumerate()
-    {
-        if i % 1000 == 1 {
-            println!("{}", i);
-        }
-        let dir = dir.unwrap();
-        if let Ok(test) = get_temp_stations(dir.path()) {
-            for value in test {
-                wtr.serialize(value).expect("Failed");
-            }
-        } else {
-            continue;
-        }
-    }
-    wtr.flush().expect("Flush failed");
-}

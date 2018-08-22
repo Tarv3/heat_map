@@ -50,7 +50,7 @@ impl<T: Num> Range<T> {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 pub struct Point<T: Num> {
     pub x: T,
     pub y: T,
@@ -137,5 +137,17 @@ impl Iterator for RectIter {
                 ]);
             }
         }
+    }
+}
+
+pub fn clamp(input: f32, min: f32, max: f32) -> f32 {
+    if input < min {
+        min
+    }
+    else if input > max {
+        max
+    }
+    else {
+        input
     }
 }

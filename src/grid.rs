@@ -1,10 +1,12 @@
+use bincode::deserialize_from;
 use csv::Reader;
 use data::{CsvRecord, DataPoint, TemperaturePoint, YearlyData};
 use glium::backend::glutin::Display;
 use glium::texture::{texture2d::Texture2d, RawImage2d};
-use math::{Dimensions, Point, RangeBox, RectIter};
+use math::{Dimensions, Point, Range, RangeBox, RectIter};
 use rayon::prelude::*;
 use std::error::Error;
+use std::fs::File;
 use std::ops::{Index, IndexMut};
 use std::path::Path;
 
@@ -136,9 +138,19 @@ impl Grid<Option<f32>> {
             println!("{:?}", item);
         }
     }
-    pub fn into_texture(&self, display: &Display) -> Texture2d {
-        let max = self.max_option().unwrap();
-        let min = self.min_option().unwrap();
+    pub fn into_texture(&self, display: &Display, range: Option<Range<f32>>) -> Texture2d {
+        let max;
+        let min;
+        match range {
+            Some(rg) => {
+                max = rg.to;
+                min = rg.from;
+            }
+            None => {
+                max = self.max_option().expect("No maximum value");
+                min = self.min_option().expect("No minimum value");
+            }
+        }
         let mut rgb = Vec::with_capacity(self.values.len() * 3);
         for y in 0..self.vertical {
             for x in 0..self.horizontal {
@@ -159,14 +171,12 @@ impl Grid<Option<f32>> {
 
     pub fn into_texture_with_function<U>(&self, display: &Display, func: U) -> Texture2d
     where
-        U: Fn(&Grid<Option<f32>>, [usize; 2], (Option<f32>, Option<f32>)) -> f32,
+        U: Fn(&Grid<Option<f32>>, [usize; 2]) -> f32,
     {
-        let max = self.max_option();
-        let min = self.min_option();
         let mut rgb = Vec::with_capacity(self.values.len() * 3);
         for y in 0..self.vertical {
             for x in 0..self.horizontal {
-                let to_push = func(&self, [x, y], (min, max));
+                let to_push = func(&self, [x, y]);
                 rgb.push(to_push);
                 rgb.push(to_push);
                 rgb.push(to_push);
@@ -220,7 +230,7 @@ impl Grid<Option<f32>> {
         return value;
     }
 
-    pub fn fill_values_nearest(mut self) -> Grid<Option<f32>>{
+    pub fn fill_values_nearest(mut self) -> Grid<Option<f32>> {
         let mut vec = Vec::with_capacity(self.values.len());
         for (index, value) in self.values.iter().enumerate() {
             vec.push((index, *value));
@@ -231,7 +241,6 @@ impl Grid<Option<f32>> {
                 Some(_) => (),
                 None => {
                     *value = self.find_closest_to(*index, 100);
-                   
                 }
             });
 
@@ -374,13 +383,14 @@ impl HeatMap<YearlyData<f32>> {
         Grid::new_from_values(self.grid.horizontal, self.grid.vertical, standard_dev)
     }
 
-    pub fn temp_heat_map_from_data(
+    pub fn temp_heat_map_from_csv(
         dimensions: (usize, usize),
         range: RangeBox<f32>,
         path: impl AsRef<Path>,
     ) -> Result<Self, Box<Error>> {
         let mut reader = Reader::from_path(path)?;
         let mut temp_grid = Self::new_temperature_grid(dimensions, range);
+        let mut incorrect = 0;
 
         for (i, result) in reader.deserialize().enumerate() {
             if i % 1000000 == 0 {
@@ -389,9 +399,29 @@ impl HeatMap<YearlyData<f32>> {
             let record: CsvRecord = result?;
             let point = match TemperaturePoint::from(record) {
                 Some(point) => point,
-                None => continue,
+                None => {
+                    continue;
+                }
             };
             temp_grid.add_temperature_point(&point);
+        }
+        Ok(temp_grid)
+    }
+
+    pub fn temp_heat_map_from_bin(
+        dimensions: (usize, usize),
+        range: RangeBox<f32>,
+        path: impl AsRef<Path>,
+    ) -> Result<Self, Box<Error>> {
+        let file = File::open(path)?;
+        let values: Vec<TemperaturePoint> = deserialize_from(file)?;
+        let mut temp_grid = Self::new_temperature_grid(dimensions, range);
+
+        for (i, result) in values.iter().enumerate() {
+            if i % 1000000 == 0 {
+                println!("{}", i);
+            }
+            temp_grid.add_temperature_point(&result);
         }
         Ok(temp_grid)
     }
