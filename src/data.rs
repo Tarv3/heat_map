@@ -1,5 +1,4 @@
 use math::Point;
-use std::cmp::PartialOrd;
 use std::ops::{Add, AddAssign, Div};
 
 #[derive(Copy, Clone, Debug)]
@@ -96,9 +95,16 @@ impl YearlyData<f32> {
                         None => return None,
                     }
                 }
-                Some((sum / 12.0).sqrt())
+                Some(sum / 12.0)
             }
             None => None,
+        }
+    }
+
+    pub fn standard_dev(&self) -> Option<f32> {
+        match self.variance() {
+            Some(value) => Some(value.sqrt()),
+            None => None
         }
     }
 }

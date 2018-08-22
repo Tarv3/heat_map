@@ -236,7 +236,7 @@ impl Grid<Option<f32>> {
             });
 
         let mut grid_vec = Vec::with_capacity(self.values.len());
-        for (index, value) in vec {
+        for (_, value) in vec {
             grid_vec.push(value);
         }
         self.values = grid_vec;
@@ -361,6 +361,17 @@ impl HeatMap<YearlyData<f32>> {
             }
         }
         Grid::new_from_values(self.grid.horizontal, self.grid.vertical, variance)
+    }
+
+    pub fn standard_dev_grid(&self) -> Grid<Option<f32>> {
+        let mut standard_dev = Vec::with_capacity(self.grid.values.len());
+        for yearly_temp in self.grid.values_ref() {
+            match yearly_temp.standard_dev() {
+                Some(var) => standard_dev.push(Some(var)),
+                None => standard_dev.push(None),
+            }
+        }
+        Grid::new_from_values(self.grid.horizontal, self.grid.vertical, standard_dev)
     }
 
     pub fn temp_heat_map_from_data(

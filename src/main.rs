@@ -23,8 +23,8 @@ use glium::glutin::EventsLoop;
 use glium::index::{NoIndices, PrimitiveType::TrianglesList};
 use glium::texture::{CompressedSrgbTexture2d, RawImage2d};
 use glium::{draw_parameters::Blend, Program, Surface};
-use grid::{Grid, HeatMap};
-use math::{Range, RangeBox, RectIter};
+use grid::{HeatMap};
+use math::{Range, RangeBox};
 use render::screen_box;
 use std::path::Path;
 use window::Window;
@@ -53,17 +53,17 @@ fn gl_test() {
         include_str!("shaders/fragment.glsl"),
         None,
     ).unwrap();
-    let min_pos = [-180.0, -90.0];
+    let min_pos = [-180.0, -70.0];
     let max_pos = [180.0, 90.0];
     let texture;
     let buffer = screen_box(&window.display);
     {
-        let mut grid = HeatMap::temp_heat_map_from_data(
-            (1200, 600),
+        let grid = HeatMap::temp_heat_map_from_data(
+            (600, 300),
             RangeBox::new(Range::new(min_pos[0], max_pos[0]), Range::new(min_pos[1], max_pos[1])),
             "Data.csv",
         ).unwrap()
-            .variance_grid()
+            .standard_dev_grid()
             .fill_values_nearest();
 
         texture = grid.into_texture_with_function(&window.display, |grid, index, (min, max)| {
