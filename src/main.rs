@@ -65,23 +65,27 @@ fn gl_test() {
     let buffer = map_box(&window.display);
     let grad_buffer = gradient_box(&window.display);
 
-    let min_pos = [-180.0, -90.0];
-    let max_pos = [180.0, 90.0];
-    let grid = HeatMap::temp_heat_map_from_csv(
-        (1200, 600),
+    let min_pos = [-140.0, 10.0];
+    let max_pos = [-50.0, 60.0];
+    // let min_pos = [-180.0, -90.0];
+    // let max_pos = [180.0, 90.0];
+    let grid = HeatMap::temp_heat_map_from_bin(
+        (720, 360),
         RangeBox::new(
             Range::new(min_pos[0], max_pos[0]),
             Range::new(min_pos[1], max_pos[1]),
         ),
-        "Data.csv",
+        "Data.b",
     ).unwrap()
         .standard_dev_grid()
         .fill_values_nearest();
 
-    let (texture, range) = grid.into_texture(&window.display, None);
-
+    let (texture, range) = grid.into_texture(&window.display, Some(Range::new(2.0, 23.0)));
+    
+    println!("range = {:?}", range );
+    
     let map_texture = load_image(&window.display, "Pure B and W Map.png");
-    let mut contrast = 50.0;
+    let mut contrast = 0.0;
     let draw_parameters = DrawParameters {
         blend: Blend::alpha_blending(),
         ..Default::default()

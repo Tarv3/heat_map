@@ -1,5 +1,6 @@
 use std::iter::Iterator;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+use std::fmt::Debug;
 
 pub trait Num:
     Sized
@@ -14,6 +15,7 @@ pub trait Num:
     + AddAssign
     + Sub<Self, Output = Self>
     + SubAssign
+    + Debug
 {
 }
 impl<T> Num for T
@@ -29,10 +31,12 @@ where
         + Add<Self, Output = Self>
         + AddAssign
         + Sub<Self, Output = Self>
-        + SubAssign,
+        + SubAssign
+        + Debug
 {
 }
 
+#[derive(Debug)]
 pub struct Range<T: Num> {
     pub from: T,
     pub to: T,

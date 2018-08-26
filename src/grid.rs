@@ -9,6 +9,7 @@ use std::error::Error;
 use std::fs::File;
 use std::ops::{Index, IndexMut};
 use std::path::Path;
+use std::io::BufReader;
 
 // Top left value will be stored first and the data will be separated by each horizontal layer
 // Eg. [1 2 3 4 5] = [1 2 3 4 5 1 2 3 4 5]
@@ -414,7 +415,7 @@ impl HeatMap<YearlyData<f32>> {
         range: RangeBox<f32>,
         path: impl AsRef<Path>,
     ) -> Result<Self, Box<Error>> {
-        let file = File::open(path)?;
+        let file = BufReader::new(File::open(path)?);
         let values: Vec<TemperaturePoint> = deserialize_from(file)?;
         let mut temp_grid = Self::new_temperature_grid(dimensions, range);
 
