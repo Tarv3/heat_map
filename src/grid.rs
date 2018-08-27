@@ -392,7 +392,6 @@ impl HeatMap<YearlyData<f32>> {
     ) -> Result<Self, Box<Error>> {
         let mut reader = Reader::from_path(path)?;
         let mut temp_grid = Self::new_temperature_grid(dimensions, range);
-        let mut incorrect = 0;
 
         for (i, result) in reader.deserialize().enumerate() {
             if i % 1000000 == 0 {

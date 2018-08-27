@@ -30,11 +30,7 @@ use math::{Range, RangeBox};
 use render::{gradient_box, map_box};
 use std::path::Path;
 use window::Window;
-
-use csv::WriterBuilder;
 use csv_read::read::get_temp_stations;
-use helper::csv_to_bin;
-use std::fs::{read_dir, remove_file, File};
 
 fn main() {
     gl_test();
@@ -65,10 +61,10 @@ fn gl_test() {
     let buffer = map_box(&window.display);
     let grad_buffer = gradient_box(&window.display);
 
-    let min_pos = [-140.0, 10.0];
-    let max_pos = [-50.0, 60.0];
-    // let min_pos = [-180.0, -90.0];
-    // let max_pos = [180.0, 90.0];
+    // let min_pos = [-140.0, 10.0];
+    // let max_pos = [-50.0, 60.0];
+    let min_pos = [-180.0, -90.0];
+    let max_pos = [180.0, 90.0];
     let grid = HeatMap::temp_heat_map_from_bin(
         (1200, 600),
         RangeBox::new(

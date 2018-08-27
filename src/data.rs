@@ -1,5 +1,6 @@
 use math::Point;
 use std::ops::{Add, AddAssign, Div};
+use csv_read::read::WindStation;
 
 #[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 pub struct DataPoint<T: Copy> {
@@ -144,4 +145,12 @@ impl TemperaturePoint {
             data: DataPoint::new(Point::new(record.longitude?, record.latitude?), temp_avg),
         })
     }
+    pub fn from_wind(station: WindStation) -> Option<Self> {
+        Some(Self {
+            month: station.date?.month? as usize,
+            data: DataPoint::new(Point::new(station.longitude?, station.latitude?), station.avg_wind?)
+        })
+        
+    }
 }
+

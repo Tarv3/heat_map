@@ -1,12 +1,13 @@
 use bincode::serialize_into;
 use csv::{Reader, WriterBuilder};
-use csv_read::read::get_temp_stations;
+use csv_read::read::{get_temp_stations, get_wind_stations};
 use data::{CsvRecord, TemperaturePoint};
 use std::error::Error;
 use std::fs::{read_dir, remove_file, File};
+use std::io::BufWriter;
 use std::path::Path;
 
-pub fn _reader_test(_file_count: usize) {
+pub fn _read_avg_temp(_file_count: usize) {
     remove_file("Data.csv").expect("Failed to remove data file");
 
     let buffer = File::create("Data.csv").expect("Couldnt create file");
@@ -39,9 +40,32 @@ pub fn _reader_test(_file_count: usize) {
     wtr.flush().expect("Flush failed");
 }
 
+pub fn _read_avg_wind(_file_count: usize) -> Result<(), Box<Error>> {
+    let writer = BufWriter::new(File::create("WindData.bin")?);
+    let mut wind_vec = Vec::new();
+
+    for (i, dir) in read_dir("F:/Uni/Grand Challenges/Data/gsom-latest")?
+        .enumerate()
+    {
+        if i % 1000 == 1 {
+            println!("{}", i);
+        }
+        let dir = dir.unwrap();
+        if let Ok(test) = get_wind_stations(dir.path()) {
+            for value in test {
+                let point = TemperaturePoint::from_wind(value);
+                wind_vec.push(point);
+            }
+        } else {
+            continue;
+        }
+    }
+    serialize_into(writer, &wind_vec)?;
+    Ok(())
+}
+
 pub fn csv_to_bin(path: impl AsRef<Path>) -> Result<(), Box<Error>> {
     let mut reader = Reader::from_path(path)?;
-    remove_file("Data.b");
     let mut file = File::create("Data.b")?;
 
     let mut values = Vec::new();
@@ -56,6 +80,6 @@ pub fn csv_to_bin(path: impl AsRef<Path>) -> Result<(), Box<Error>> {
         };
         values.push(point);
     }
-    serialize_into(&mut file, &values);
+    serialize_into(&mut file, &values)?;
     Ok(())
 }
