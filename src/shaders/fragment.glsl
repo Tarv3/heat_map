@@ -46,11 +46,15 @@ void main() {
     float contrast_value = (259.0 * ( + 255.0))/(255.0 * (259.0 - contrast));
     float negative = min(0.0, value.x);
     float new_brightness = contrast_value * (value.x - 0.5) + 0.5;
+
+
     vec2 f_min_pos = (min_pos + vec2(180.0, 90)) / vec2(360, 180);
     vec2 f_max_pos = (max_pos + vec2(180.0, 90)) / vec2(360, 180);
     float tex_x = mix(f_min_pos.x, f_max_pos.x, f_tex_coord.x);
     float tex_y = mix(f_min_pos.y, f_max_pos.y, f_tex_coord.y);
+    dims = textureSize(bwmap, 0);
+    tex_pos = ivec2(int(float(dims.x) * tex_x), int(float(dims.y) * tex_y));
 
-    colour = vec4(texture(bwmap, vec2(tex_x, tex_y)).x * hsv_to_rgb(1 - new_brightness), 1.0);
+    colour = vec4(texelFetch(bwmap, tex_pos, 0).x * hsv_to_rgb(1 - new_brightness), 1.0);
 
 }

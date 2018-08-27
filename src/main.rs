@@ -70,7 +70,7 @@ fn gl_test() {
     // let min_pos = [-180.0, -90.0];
     // let max_pos = [180.0, 90.0];
     let grid = HeatMap::temp_heat_map_from_bin(
-        (720, 360),
+        (1200, 600),
         RangeBox::new(
             Range::new(min_pos[0], max_pos[0]),
             Range::new(min_pos[1], max_pos[1]),
