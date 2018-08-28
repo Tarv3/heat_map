@@ -143,6 +143,52 @@ impl FromStringRecord for WindStation {
     }
 }
 
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+pub struct RainStation {
+    pub date: Option<Date>,
+    pub longitude: Option<f32>,
+    pub latitude: Option<f32>,
+    pub precip: Option<f32>,
+}
+
+impl FromStringRecord for RainStation {
+    fn field_count() -> usize {
+        4
+    }
+
+    fn from_string_records<T: Read>(
+        headers: &HeaderContainer,
+        records: &mut StringRecordsIter<T>,
+    ) -> Result<Vec<Self>, Box<Error>> {
+        if Self::correct_num_headers(headers) {
+            let long_col = headers.column_with_name("LONGITUDE")?;
+            let lat_col = headers.column_with_name("LATITUDE")?;
+            let date_col = headers.column_with_name("DATE")?;
+            let precip_col = headers.column_with_name("PRCP")?;
+            
+
+            let mut values = Vec::new();
+            for record in records {
+                let record = record?;
+                let mut long = record[long_col].parse().ok();
+                let mut lat = record[lat_col].parse().ok();
+                let mut date = record[date_col].parse().ok();
+                let mut precip = record[precip_col].parse().ok();
+                if precip != None {
+                    values.push(Self {
+                        date,
+                        longitude: long,
+                        latitude: lat,
+                        precip
+                    });
+                }
+            }
+            return Ok(values);
+        }
+        Err(Box::new(IncorrectColumnsErr::new(headers.clone())))
+    }
+}
+
 pub fn get_temp_stations<P: AsRef<Path>>(path: P) -> Result<Vec<TempStation>, Box<Error>> {
     let mut reader = Reader::from_path(path)?;
     let headers;
@@ -170,5 +216,20 @@ pub fn get_wind_stations<P: AsRef<Path>>(path: P) -> Result<Vec<WindStation>, Bo
         )?;
     }
     let values = WindStation::from_string_records(&headers, &mut reader.records())?;
+    Ok(values)
+}
+
+pub fn get_precip_stations<P: AsRef<Path>>(path: P) -> Result<Vec<RainStation>, Box<Error>> {
+    let mut reader = Reader::from_path(path)?;
+    let headers;
+    {
+        let header_record = reader.headers()?;
+        headers = HeaderContainer::from_record(
+            header_record,
+            &["DATE", "LONGITUDE", "LATITUDE", "PRCP"],
+            &mut vec![],
+        )?;
+    }
+    let values = RainStation::from_string_records(&headers, &mut reader.records())?;
     Ok(values)
 }

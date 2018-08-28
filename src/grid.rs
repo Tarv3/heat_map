@@ -7,9 +7,9 @@ use math::{Dimensions, Point, Range, RangeBox, RectIter};
 use rayon::prelude::*;
 use std::error::Error;
 use std::fs::File;
+use std::io::BufReader;
 use std::ops::{Index, IndexMut};
 use std::path::Path;
-use std::io::BufReader;
 
 // Top left value will be stored first and the data will be separated by each horizontal layer
 // Eg. [1 2 3 4 5] = [1 2 3 4 5 1 2 3 4 5]
@@ -119,6 +119,7 @@ impl Grid<Option<f32>> {
         }
         max
     }
+
     pub fn min_option(&self) -> Option<f32> {
         let mut min = None;
         for &temp in &self.values {
@@ -134,12 +135,18 @@ impl Grid<Option<f32>> {
         }
         min
     }
+
     pub fn print(&self) {
         for item in &self.values {
             println!("{:?}", item);
         }
     }
-    pub fn into_texture(&self, display: &Display, range: Option<Range<f32>>) -> (Texture2d, Range<f32>) {
+
+    pub fn into_texture(
+        &self,
+        display: &Display,
+        range: Option<Range<f32>>,
+    ) -> (Texture2d, Range<f32>) {
         let max;
         let min;
         match range {
@@ -164,11 +171,13 @@ impl Grid<Option<f32>> {
                 rgb.push(to_push);
             }
         }
-        (Texture2d::new(
-            display,
-            RawImage2d::from_raw_rgb(rgb, ((self.horizontal) as u32, (self.vertical) as u32)),
-        ).expect("Failed to create texture"),
-        Range::new(min, max))
+        (
+            Texture2d::new(
+                display,
+                RawImage2d::from_raw_rgb(rgb, ((self.horizontal) as u32, (self.vertical) as u32)),
+            ).expect("Failed to create texture"),
+            Range::new(min, max),
+        )
     }
 
     pub fn into_texture_with_function<U>(&self, display: &Display, func: U) -> Texture2d
@@ -253,6 +262,25 @@ impl Grid<Option<f32>> {
         self.values = grid_vec;
         self
     }
+
+    pub fn compare_to(&self, other: &Grid<Option<f32>>) -> Vec<(f32, f32)> {
+        let x_ratio = other.horizontal as f32 / self.horizontal as f32;
+        let y_ratio = other.vertical as f32 / self.vertical as f32;
+        let mut values = Vec::new();
+
+        for (i, &value) in self.values.iter().enumerate() {
+            if let Some(inner) = value {
+                let position = self.index_to_position(i);
+                let x_index = (position[0] as f32 * x_ratio).round() as i32;
+                let y_index = (position[1] as f32 * y_ratio).round() as i32;
+
+                if let Some(Some(inner2)) = other.checked_index([x_index, y_index]) {
+                    values.push((inner, inner2));
+                }
+            }
+        }
+        return values;
+    }
 }
 
 // Index is [x, y]
@@ -290,6 +318,14 @@ impl<T: Copy> HeatMap<T> {
             dims.x / self.grid.horizontal as f32,
             dims.y / self.grid.vertical as f32,
         )
+    }
+
+    pub fn into_grid_with<U: Fn(&T) -> Option<f32>>(&self, func: U) -> Grid<Option<f32>> {
+        let mut grid_values = Vec::with_capacity(self.grid.values.len());
+        for value in self.grid.values_ref() {
+            grid_values.push(func(value));
+        }
+        Grid::new_from_values(self.grid.horizontal, self.grid.vertical, grid_values)
     }
 
     pub fn point_in_map(&self, point: Point<f32>) -> bool {
@@ -353,36 +389,27 @@ impl HeatMap<YearlyData<f32>> {
     }
 
     pub fn average_temp_grid(&self) -> Grid<Option<f32>> {
-        let mut average_temps = Vec::with_capacity(self.grid.values.len());
-        for yearly_temp in self.grid.values_ref() {
-            match yearly_temp.yearly_average() {
-                Some(temp) => average_temps.push(Some(temp)),
-                None => average_temps.push(None),
-            }
-        }
-        Grid::new_from_values(self.grid.horizontal, self.grid.vertical, average_temps)
+        self.into_grid_with(|yearly_temp| {
+            yearly_temp.yearly_average()
+        })
     }
 
     pub fn variance_grid(&self) -> Grid<Option<f32>> {
-        let mut variance = Vec::with_capacity(self.grid.values.len());
-        for yearly_temp in self.grid.values_ref() {
-            match yearly_temp.variance() {
-                Some(var) => variance.push(Some(var)),
-                None => variance.push(None),
-            }
-        }
-        Grid::new_from_values(self.grid.horizontal, self.grid.vertical, variance)
+        self.into_grid_with(|yearly_temp| {
+            yearly_temp.variance()
+        })
     }
 
     pub fn standard_dev_grid(&self) -> Grid<Option<f32>> {
-        let mut standard_dev = Vec::with_capacity(self.grid.values.len());
-        for yearly_temp in self.grid.values_ref() {
-            match yearly_temp.standard_dev() {
-                Some(var) => standard_dev.push(Some(var)),
-                None => standard_dev.push(None),
-            }
-        }
-        Grid::new_from_values(self.grid.horizontal, self.grid.vertical, standard_dev)
+        self.into_grid_with(|yearly_temp| {
+            yearly_temp.standard_dev()
+        })
+    }
+
+    pub fn range_grid(&self) -> Grid<Option<f32>> {
+        self.into_grid_with(|yearly_temp| {
+            yearly_temp.range()
+        })
     }
 
     pub fn temp_heat_map_from_csv(

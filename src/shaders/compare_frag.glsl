@@ -1,6 +1,7 @@
 #version 400
 
-uniform sampler2D map;
+uniform sampler2D map1;
+uniform sampler2D map2;
 uniform sampler2D bwmap;
 uniform float contrast;
 uniform vec2 min_pos;
@@ -40,12 +41,19 @@ vec3 hsv_to_rgb(in float hue) {
 }
 
 void main() {
-    ivec2 dims = textureSize(map, 0);
+    ivec2 dims = textureSize(map1, 0);
     ivec2 tex_pos = ivec2(int(float(dims.x) * f_tex_coord.x), int(float(dims.y) * f_tex_coord.y));
-    vec4 value = (texelFetch(map, tex_pos, 0) - 0.5) * 2.0;
+    vec4 value1 = (texelFetch(map1, tex_pos, 0) - 0.5) * 2.0;
+
+    dims = textureSize(map2, 0);
+    tex_pos = ivec2(int(float(dims.x) * f_tex_coord.x), int(float(dims.y) * f_tex_coord.y));
+    vec4 value2 = (texelFetch(map2, tex_pos, 0) - 0.5) * 2.0;
+
+    float value = abs(value1.x - value2.x);
+
     float contrast_value = (259.0 * ( + 255.0))/(255.0 * (259.0 - contrast));
-    float negative = min(0.0, value.x);
-    float new_brightness = contrast_value * (value.x - 0.5) + 0.5;
+    float negative = min(0.0, value);
+    float new_brightness = contrast_value * (value - 0.5) + 0.5;
 
 
     vec2 f_min_pos = (min_pos + vec2(180.0, 90)) / vec2(360, 180);

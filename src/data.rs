@@ -1,6 +1,21 @@
+use csv_read::read::{RainStation, WindStation};
 use math::Point;
 use std::ops::{Add, AddAssign, Div};
-use csv_read::read::WindStation;
+
+#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+pub struct Comparison {
+    pub var1: f32,
+    pub var2: f32,
+}
+
+impl Comparison {
+    pub fn from(tup: (f32, f32)) -> Self {
+        Self {
+            var1: tup.0,
+            var2: tup.1,
+        }
+    }
+}
 
 #[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 pub struct DataPoint<T: Copy> {
@@ -105,8 +120,36 @@ impl YearlyData<f32> {
     pub fn standard_dev(&self) -> Option<f32> {
         match self.variance() {
             Some(value) => Some(value.sqrt()),
-            None => None
+            None => None,
         }
+    }
+
+    pub fn range(&self) -> Option<f32> {
+        let mut min = None;
+        let mut max = None;
+        for &month in &self.montly_data {
+            match month.average() {
+                Some(average) => {
+                    let current_min = min;
+                    let current_max = max;
+
+                    match current_min {
+                        Some(value) => if value > average {
+                            min = Some(average);
+                        },
+                        None => min = Some(average)
+                    }
+                    match current_max {
+                        Some(value) => if value < average {
+                            max = Some(average);
+                        },
+                        None => max = Some(average)
+                    }
+                }
+                None => return None,
+            }
+        }
+        return Some(max.unwrap() - min.unwrap());
     }
 }
 
@@ -148,9 +191,20 @@ impl TemperaturePoint {
     pub fn from_wind(station: WindStation) -> Option<Self> {
         Some(Self {
             month: station.date?.month? as usize,
-            data: DataPoint::new(Point::new(station.longitude?, station.latitude?), station.avg_wind?)
+            data: DataPoint::new(
+                Point::new(station.longitude?, station.latitude?),
+                station.avg_wind?,
+            ),
         })
-        
+    }
+
+    pub fn from_rain(station: RainStation) -> Option<Self> {
+        Some(Self {
+            month: station.date?.month? as usize,
+            data: DataPoint::new(
+                Point::new(station.longitude?, station.latitude?),
+                station.precip?,
+            ),
+        })
     }
 }
-

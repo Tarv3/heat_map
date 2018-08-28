@@ -3,4 +3,10 @@
 /Birds.jpg
 /AEM00041217.csv
 /Data.csv
-/Data.b
+/Data.bin
+/WindData.bin
+/RainVSDev.csv
+/RainVTemp.csv
+/RainVVar.csv
+/WindVVar.csv
+/RainData.bin

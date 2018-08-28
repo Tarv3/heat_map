@@ -19,67 +19,77 @@ pub mod math;
 pub mod render;
 pub mod window;
 
+use data::YearlyData;
 use glium::backend::glutin::Display;
 use glium::draw_parameters::DrawParameters;
 use glium::glutin::EventsLoop;
 use glium::index::{NoIndices, PrimitiveType::TrianglesList};
-use glium::texture::{CompressedSrgbTexture2d, RawImage2d};
 use glium::{draw_parameters::Blend, Program, Surface};
 use grid::HeatMap;
+use helper::*;
 use math::{Range, RangeBox};
 use render::{gradient_box, map_box};
 use std::path::Path;
 use window::Window;
-use csv_read::read::get_temp_stations;
 
 fn main() {
-    gl_test();
+    // read_precip().expect("failed to read wind");
+    render_heatmap();
+    // compare_rain_to_standard_dev("WindData.bin", "Data.b");
 }
 
-fn load_image(display: &Display, path: impl AsRef<Path>) -> CompressedSrgbTexture2d {
-    let image = image::open(path).expect("Cannot open image").to_rgba();
-    let dims = image.dimensions();
-    let raw = RawImage2d::from_raw_rgba_reversed(&image.into_raw(), dims);
-    CompressedSrgbTexture2d::new(display, raw).unwrap()
-}
-
-fn gl_test() {
-    let mut events_loop = EventsLoop::new();
-    let mut window = Window::new(false, true, true, [1500.0, 750.0], &events_loop);
+fn load_programs(display: &Display) -> (Program, Program) {
     let program = Program::from_source(
-        &window.display,
+        display,
         include_str!("shaders/vertex.glsl"),
         include_str!("shaders/fragment.glsl"),
         None,
     ).unwrap();
     let grad_program = Program::from_source(
-        &window.display,
+        display,
         include_str!("shaders/vertex.glsl"),
         include_str!("shaders/gradient.glsl"),
         None,
     ).unwrap();
+    return (program, grad_program);
+}
+
+fn generate_heatmap(
+    resolution: (usize, usize),
+    horizontal: Range<f32>,
+    vertical: Range<f32>,
+    path: impl AsRef<Path>,
+) -> HeatMap<YearlyData<f32>> {
+    HeatMap::temp_heat_map_from_bin(resolution, RangeBox::new(horizontal, vertical), path).unwrap()
+}
+
+fn render_heatmap() {
+    let mut events_loop = EventsLoop::new();
+    let mut window = Window::new(false, true, true, [1800.0, 900.0], &events_loop);
+    let (program, grad_program) = load_programs(&window.display);
     let buffer = map_box(&window.display);
     let grad_buffer = gradient_box(&window.display);
 
-    // let min_pos = [-140.0, 10.0];
-    // let max_pos = [-50.0, 60.0];
-    let min_pos = [-180.0, -90.0];
-    let max_pos = [180.0, 90.0];
-    let grid = HeatMap::temp_heat_map_from_bin(
-        (1200, 600),
-        RangeBox::new(
-            Range::new(min_pos[0], max_pos[0]),
-            Range::new(min_pos[1], max_pos[1]),
-        ),
-        "Data.b",
-    ).unwrap()
+    // US
+    // let horizontal = Range::new(-140.0, -50.0);
+    // let vertical = Range::new(10.0, 60.0);
+    // Aus
+    // let horizontal = Range::new(110.0, 155.0);
+    // let vertical = Range::new(-44.0, -8.0);
+    // Europe
+    // let horizontal = Range::new(-30.0, 75.0);
+    // let vertical = Range::new(15.0, 75.0);
+    let horizontal = Range::new(-180.0, 180.0);
+    let vertical = Range::new(-90.0, 90.0);
+
+    let grid = generate_heatmap((1200, 600), horizontal, vertical, "Data.bin")
         .standard_dev_grid()
         .fill_values_nearest();
 
-    let (texture, range) = grid.into_texture(&window.display, Some(Range::new(2.0, 23.0)));
-    
-    println!("range = {:?}", range );
-    
+    let (texture, range) = grid.into_texture(&window.display, None);
+
+    println!("range = {:?}", range);
+
     let map_texture = load_image(&window.display, "Pure B and W Map.png");
     let mut contrast = 0.0;
     let draw_parameters = DrawParameters {
@@ -95,8 +105,8 @@ fn gl_test() {
         let uniforms = uniform! {
             map: &texture,
             bwmap: &map_texture,
-            min_pos: min_pos,
-            max_pos: max_pos,
+            min_pos: [horizontal.from, vertical.from],
+            max_pos: [horizontal.to, vertical.to],
             contrast: contrast
         };
         let mut target = window.display.draw();

@@ -36,7 +36,7 @@ where
 {
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Range<T: Num> {
     pub from: T,
     pub to: T,
