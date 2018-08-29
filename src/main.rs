@@ -25,6 +25,7 @@ use glium::draw_parameters::DrawParameters;
 use glium::glutin::EventsLoop;
 use glium::index::{NoIndices, PrimitiveType::TrianglesList};
 use glium::{draw_parameters::Blend, Program, Surface};
+use grid::Grid;
 use grid::HeatMap;
 use helper::*;
 use math::{Range, RangeBox};
@@ -35,6 +36,7 @@ use window::Window;
 fn main() {
     // read_precip().expect("failed to read wind");
     render_heatmap();
+    // compare_elevation_to_deriv_sd("Elevation.bin", "Data.bin");
     // compare_rain_to_standard_dev("WindData.bin", "Data.b");
 }
 
@@ -54,13 +56,17 @@ fn load_programs(display: &Display) -> (Program, Program) {
     return (program, grad_program);
 }
 
-fn generate_heatmap(
-    resolution: (usize, usize),
+fn elevation_heatmap(
+    dimensions: (usize, usize),
     horizontal: Range<f32>,
     vertical: Range<f32>,
-    path: impl AsRef<Path>,
-) -> HeatMap<YearlyData<f32>> {
-    HeatMap::temp_heat_map_from_bin(resolution, RangeBox::new(horizontal, vertical), path).unwrap()
+) -> Grid<Option<f32>> {
+    let grid = HeatMap::elevation_map_from_bin(
+        dimensions,
+        RangeBox::new(horizontal, vertical),
+        "Elevation.bin",
+    );
+    grid.unwrap().elevation_grid()
 }
 
 fn render_heatmap() {
@@ -79,15 +85,15 @@ fn render_heatmap() {
     // Europe
     // let horizontal = Range::new(-30.0, 75.0);
     // let vertical = Range::new(15.0, 75.0);
+
     let horizontal = Range::new(-180.0, 180.0);
     let vertical = Range::new(-90.0, 90.0);
 
-    let grid = generate_heatmap((1200, 600), horizontal, vertical, "Data.bin")
-        .standard_dev_grid()
-        .fill_values_nearest();
-
+    let grid = HeatMap::temp_heat_map_from_bin((1200, 600), RangeBox::new(horizontal, vertical), "Data.bin");
+    let grid = grid.unwrap().standard_dev_grid().fill_values_nearest();
+    // let grid = elevation_heatmap((1200, 600), horizontal, vertical).fill_values_nearest();
+    
     let (texture, range) = grid.into_texture(&window.display, None);
-
     println!("range = {:?}", range);
 
     let map_texture = load_image(&window.display, "Pure B and W Map.png");

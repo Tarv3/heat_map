@@ -43,7 +43,7 @@ void main() {
     ivec2 dims = textureSize(map, 0);
     ivec2 tex_pos = ivec2(int(float(dims.x) * f_tex_coord.x), int(float(dims.y) * f_tex_coord.y));
     vec4 value = (texelFetch(map, tex_pos, 0) - 0.5) * 2.0;
-    float contrast_value = (259.0 * ( + 255.0))/(255.0 * (259.0 - contrast));
+    float contrast_value = (259.0 * (contrast + 255.0))/(255.0 * (259.0 - contrast));
     float negative = min(0.0, value.x);
     float new_brightness = contrast_value * (value.x - 0.5) + 0.5;
 
@@ -55,7 +55,6 @@ void main() {
     dims = textureSize(bwmap, 0);
     tex_pos = ivec2(int(float(dims.x) * tex_x), int(float(dims.y) * tex_y));
 
-    colour = vec4(texelFetch(bwmap, tex_pos, 0).x * hsv_to_rgb(1 - new_brightness), 1.0);
-    // colour = vec4(mix(hsv_to_rgb(1 - new_brightness), vec3(0.0, 0.0, 0.0), -min(0, value.x)), 1.0);
+    colour = texelFetch(bwmap, tex_pos, 0).x * vec4(mix(hsv_to_rgb(1 - new_brightness), vec3(0.0, 0.0, 0.0), -min(0, value.x)), 1.0);
 
 }

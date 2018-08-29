@@ -1,6 +1,6 @@
 use bincode::deserialize_from;
 use csv::Reader;
-use data::{CsvRecord, DataPoint, TemperaturePoint, YearlyData};
+use data::{CSum, CsvRecord, DataPoint, TemperaturePoint, YearlyData};
 use glium::backend::glutin::Display;
 use glium::texture::{texture2d::Texture2d, RawImage2d};
 use math::{Dimensions, Point, Range, RangeBox, RectIter};
@@ -198,7 +198,6 @@ impl Grid<Option<f32>> {
             RawImage2d::from_raw_rgb(rgb, ((self.horizontal) as u32, (self.vertical) as u32)),
         ).expect("Failed to create texture")
     }
-
     pub fn find_closest_to(&self, index: usize, max_rad: i32) -> Option<f32> {
         let mut value = None;
         let mut smallest_dist = None;
@@ -241,6 +240,24 @@ impl Grid<Option<f32>> {
         return value;
     }
 
+    pub fn find_all_within(&self, index: usize, max_rad: i32) -> Vec<f32> {
+        let position = self.index_to_position(index);
+        let position = [position[0] as i32, position[1] as i32];
+        let mut closest_points = Vec::new();
+        for i in 1..max_rad {
+            for point in RectIter::new(position, i) {
+                match self.checked_index([point[0] as i32, point[1] as i32]) {
+                    Some(value) => if let Some(value) = value {
+                        closest_points.push(value);
+                    },
+                    None => continue,
+                };
+            }
+        }
+
+        return closest_points;
+    }
+
     pub fn fill_values_nearest(mut self) -> Grid<Option<f32>> {
         let mut vec = Vec::with_capacity(self.values.len());
         for (index, value) in self.values.iter().enumerate() {
@@ -280,6 +297,94 @@ impl Grid<Option<f32>> {
             }
         }
         return values;
+    }
+
+    pub fn into_range_grid(&self, radius: i32) -> Grid<Option<f32>> {
+        let mut vec = Vec::with_capacity(self.values.len());
+        for i in 0..self.values.len() {
+            vec.push((i, None));
+        }
+
+        vec.par_iter_mut().for_each(|(index, range)| {
+            let mut min = self.values[*index];
+            let mut max = self.values[*index];
+            let position = self.index_to_position(*index);
+            let position = [position[0] as i32, position[1] as i32];
+            for rad in 1..radius {
+                for value in RectIter::new(position, rad) {
+                    if let Some(op) = self.checked_index([value[0] as i32, value[1] as i32]) {
+                        if let Some(num) = op {
+                            let current_min = min;
+                            let current_max = max;
+                            match current_min {
+                                Some(val) => if val > num {
+                                    min = Some(num);
+                                },
+                                None => min = Some(num),
+                            }
+                            match current_max {
+                                Some(val) => if val < num {
+                                    max = Some(num);
+                                },
+                                None => max = Some(num),
+                            }
+                        }
+                    }
+                }
+            }
+            if let Some(num1) = min {
+                if let Some(num2) = max {
+                    *range = Some(num2 - num1);
+                }
+            }
+        });
+
+        let mut grid_vec = Vec::with_capacity(self.values.len());
+        for index in 0..vec.len() {
+            grid_vec.push(vec[index].1);
+        }
+        Grid::new_from_values(self.horizontal, self.vertical, grid_vec)
+    }
+
+    pub fn range_grid_from_closest(&self, radius: i32) -> Grid<Option<f32>> {
+        let mut vec = Vec::with_capacity(self.values.len());
+        for i in 0..self.values.len() {
+            vec.push((i, None));
+        }
+
+        vec.par_iter_mut().for_each(|(index, range)| {
+            let current = self.values[*index];
+            if current == None {
+                return;
+            }
+            let closest_values = self.find_all_within(*index, radius);
+            let mut csum = CSum::new();
+            for &value in &closest_values {
+                csum.add(value);
+            }
+            let average = match csum.average() {
+                Some(avg) => avg,
+                None => return,
+            };
+
+            let mut variance: Option<f32> = None;
+            for value in closest_values {
+                let current = variance;
+                variance = match current {
+                    Some(num) => Some(num + (value - average).powi(2) / csum.count as f32),
+                    None => Some((value - average).powi(2) / csum.count as f32),
+                }
+            }
+            if let Some(num) = variance {
+                *range = Some(num.sqrt());
+            }
+        });
+
+        let mut grid_vec = Vec::with_capacity(self.values.len());
+        for index in 0..vec.len() {
+            grid_vec.push(vec[index].1);
+        }
+        Grid::new_from_values(self.horizontal, self.vertical, grid_vec)
     }
 }
 
@@ -389,27 +494,19 @@ impl HeatMap<YearlyData<f32>> {
     }
 
     pub fn average_temp_grid(&self) -> Grid<Option<f32>> {
-        self.into_grid_with(|yearly_temp| {
-            yearly_temp.yearly_average()
-        })
+        self.into_grid_with(|yearly_temp| yearly_temp.yearly_average())
     }
 
     pub fn variance_grid(&self) -> Grid<Option<f32>> {
-        self.into_grid_with(|yearly_temp| {
-            yearly_temp.variance()
-        })
+        self.into_grid_with(|yearly_temp| yearly_temp.variance())
     }
 
     pub fn standard_dev_grid(&self) -> Grid<Option<f32>> {
-        self.into_grid_with(|yearly_temp| {
-            yearly_temp.standard_dev()
-        })
+        self.into_grid_with(|yearly_temp| yearly_temp.standard_dev())
     }
 
     pub fn range_grid(&self) -> Grid<Option<f32>> {
-        self.into_grid_with(|yearly_temp| {
-            yearly_temp.range()
-        })
+        self.into_grid_with(|yearly_temp| yearly_temp.range())
     }
 
     pub fn temp_heat_map_from_csv(
@@ -452,5 +549,27 @@ impl HeatMap<YearlyData<f32>> {
             temp_grid.add_temperature_point(&result);
         }
         Ok(temp_grid)
+    }
+}
+
+impl HeatMap<CSum<f32>> {
+    pub fn elevation_map_from_bin(
+        dimensions: (usize, usize),
+        range: RangeBox<f32>,
+        path: impl AsRef<Path>,
+    ) -> Result<Self, Box<Error>> {
+        let file = BufReader::new(File::open(path)?);
+        let values: Vec<DataPoint<f32>> = deserialize_from(file)?;
+        let grid = Grid::new(dimensions.0, dimensions.1, CSum::new());
+        let mut grid = HeatMap::new(grid, range);
+
+        grid.add_data_points(&values, |grid, index, &value| {
+            grid[index].add(value);
+        });
+        Ok(grid)
+    }
+
+    pub fn elevation_grid(&self) -> Grid<Option<f32>> {
+        self.into_grid_with(|&sum| sum.average())
     }
 }

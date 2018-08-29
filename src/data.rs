@@ -31,7 +31,7 @@ impl<T: Copy> DataPoint<T> {
 
 #[derive(Copy, Clone, Debug)]
 pub struct CSum<T: Copy + Add<T, Output = T> + AddAssign + Div<f32, Output = T>> {
-    count: i64,
+    pub count: i64,
     data: Option<T>,
 }
 
@@ -156,19 +156,19 @@ impl YearlyData<f32> {
 #[derive(Debug, Deserialize)]
 pub struct CsvRecord {
     #[serde(rename = "YEAR")]
-    year: Option<u32>,
+    pub year: Option<u32>,
     #[serde(rename = "MONTH")]
-    month: Option<u32>,
+    pub month: Option<u32>,
     #[serde(rename = "DAY")]
-    day: Option<u32>,
+    pub day: Option<u32>,
     #[serde(rename = "LONGITUDE")]
-    longitude: Option<f32>,
+    pub longitude: Option<f32>,
     #[serde(rename = "LATITUDE")]
-    latitude: Option<f32>,
+    pub latitude: Option<f32>,
     #[serde(rename = "ELEVATION")]
-    elevation: Option<f32>,
+    pub elevation: Option<f32>,
     #[serde(rename = "TAVG")]
-    avg_temp: f32,
+    pub avg_temp: f32,
 }
 
 #[derive(Copy, Clone, Debug, Deserialize, Serialize)]

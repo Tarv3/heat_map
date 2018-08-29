@@ -1,13 +1,13 @@
 use bincode::serialize_into;
 use csv::{Reader, WriterBuilder};
 use csv_read::read::{get_precip_stations, get_temp_stations, get_wind_stations};
-use data::{CsvRecord, TemperaturePoint};
+use data::{CsvRecord, TemperaturePoint, DataPoint};
 use grid::HeatMap;
 use std::error::Error;
 use std::fs::{read_dir, remove_file, File};
 use std::io::BufWriter;
 use std::path::Path;
-use math::{Range, RangeBox};
+use math::{Range, RangeBox, Point};
 use glium::backend::glutin::Display;
 use glium::draw_parameters::DrawParameters;
 use glium::glutin::EventsLoop;
@@ -122,6 +122,43 @@ pub fn csv_to_bin(path: impl AsRef<Path>) -> Result<(), Box<Error>> {
     Ok(())
 }
 
+pub fn write_elevation(path: impl AsRef<Path>) -> Result<(), Box<Error>> {
+    let mut reader = Reader::from_path(path)?;
+    let mut file = BufWriter::new(File::create("Elevation.b")?);
+
+    let mut values = Vec::new();
+    for (i, result) in reader.deserialize().enumerate() {
+        if i % 1000000 == 0 {
+            println!("{}", i);
+        }
+        let record: CsvRecord = result?;
+        let mut valid = true;
+        let long = record.longitude.unwrap_or_else(|| {
+            valid = false;
+            0.0
+        });
+        let lat = record.latitude.unwrap_or_else(|| {
+            valid = false;
+            0.0
+        });
+        let elevation = record.elevation.unwrap_or_else(|| {
+            valid = false;
+            0.0
+        });
+
+        if !valid {
+            continue;
+        } 
+        let point = DataPoint {
+            position: Point::new(long, lat),
+            data: elevation
+        };
+        values.push(point);
+    }
+    serialize_into(&mut file, &values)?;
+    Ok(())
+}
+
 pub fn compare_rain_to_standard_dev(
     rain_data: impl AsRef<Path>,
     temp_data: impl AsRef<Path>,
@@ -153,6 +190,49 @@ pub fn compare_rain_to_standard_dev(
     wtr.write_record(&[
         "Wind",
         "Var",
+    ]).expect("Failed to write headers");
+
+    for value in comparison {
+        wtr.serialize(value)?;
+    }
+    wtr.flush()?;
+    Ok(())
+}
+
+pub fn compare_elevation_to_deriv_sd(
+    elevation: impl AsRef<Path>,
+    temp_data: impl AsRef<Path>,
+) -> Result<(), Box<Error>> {
+    let horizontal = Range::new(-140.0, -50.0);
+    let vertical = Range::new(10.0, 60.0);
+    let variance = HeatMap::temp_heat_map_from_bin(
+        (720, 360),
+        RangeBox::new(
+            horizontal,
+            vertical,
+        ),
+        temp_data
+    ).unwrap()
+        .standard_dev_grid()
+        .range_grid_from_closest(8)
+        .fill_values_nearest();
+
+    let elevation = HeatMap::elevation_map_from_bin(
+        (720, 360),
+        RangeBox::new(
+            horizontal,
+            vertical,
+        ),
+        elevation,
+    ).unwrap()
+        .elevation_grid();
+    
+    let comparison = elevation.compare_to(&variance);
+    let file = File::create("ElevationVSDD.csv")?;
+    let mut wtr = WriterBuilder::new().has_headers(false).from_writer(file);
+    wtr.write_record(&[
+        "Elevation",
+        "SDD",
     ]).expect("Failed to write headers");
 
     for value in comparison {
