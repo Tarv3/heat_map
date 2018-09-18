@@ -18,6 +18,7 @@ pub mod input;
 pub mod math;
 pub mod render;
 pub mod window;
+pub mod heatmap;
 
 use data::YearlyData;
 use glium::backend::glutin::Display;
@@ -26,7 +27,7 @@ use glium::glutin::EventsLoop;
 use glium::index::{NoIndices, PrimitiveType::TrianglesList};
 use glium::{draw_parameters::Blend, Program, Surface};
 use grid::Grid;
-use grid::HeatMap;
+use heatmap::HeatMap;
 use helper::*;
 use math::{Range, RangeBox};
 use render::{gradient_box, map_box};

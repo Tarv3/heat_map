@@ -2,7 +2,7 @@ use bincode::serialize_into;
 use csv::{Reader, WriterBuilder};
 use csv_read::read::{get_precip_stations, get_temp_stations, get_wind_stations};
 use data::{CsvRecord, TemperaturePoint, DataPoint};
-use grid::HeatMap;
+use heatmap::HeatMap;
 use std::error::Error;
 use std::fs::{read_dir, remove_file, File};
 use std::io::BufWriter;

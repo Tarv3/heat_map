@@ -29,7 +29,7 @@ impl<T: Copy> DataPoint<T> {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct CSum<T: Copy + Add<T, Output = T> + AddAssign + Div<f32, Output = T>> {
     pub count: i64,
     data: Option<T>,
@@ -59,28 +59,40 @@ impl<T: Copy + Add<T, Output = T> + AddAssign + Div<f32, Output = T>> CSum<T> {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct YearlyData<T: Copy + Add<T, Output = T> + AddAssign + Div<f32, Output = T>> {
-    pub montly_data: [CSum<T>; 12],
+    pub monthly_data: [CSum<T>; 12],
 }
 
 impl YearlyData<f32> {
     pub fn new() -> Self {
         Self {
-            montly_data: [CSum::new(); 12],
+            monthly_data: [CSum::new(); 12],
         }
     }
 
     // Month has to be between 1 - 12 inclusive
     pub fn add_to(&mut self, data: f32, month: usize) {
-        self.montly_data[month - 1].add(data);
+        self.monthly_data[month - 1].add(data);
+    }
+
+    pub fn none_count(&self) -> usize {
+        let mut out = 0;
+        for month in self.monthly_data.iter() {
+            match month.average() {
+                None => out += 1,
+                _ => ()
+            }
+        }
+
+        out
     }
 
     pub fn yearly_average(&self) -> Option<f32> {
         let mut none_count = 0;
         let mut average = None;
 
-        for month in self.montly_data.iter() {
+        for month in self.monthly_data.iter() {
             match month.average() {
                 Some(number) => match average {
                     Some(ref mut value) => *value += number,
@@ -105,7 +117,7 @@ impl YearlyData<f32> {
         match self.yearly_average() {
             Some(avg) => {
                 let mut sum = 0.0;
-                for &month in &self.montly_data {
+                for &month in &self.monthly_data {
                     match month.average() {
                         Some(month_avg) => sum += (month_avg - avg).powi(2),
                         None => return None,
@@ -127,7 +139,7 @@ impl YearlyData<f32> {
     pub fn range(&self) -> Option<f32> {
         let mut min = None;
         let mut max = None;
-        for &month in &self.montly_data {
+        for &month in &self.monthly_data {
             match month.average() {
                 Some(average) => {
                     let current_min = min;
