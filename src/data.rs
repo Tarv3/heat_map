@@ -76,6 +76,10 @@ impl YearlyData<f32> {
         self.monthly_data[month - 1].add(data);
     }
 
+    pub fn get_month_average(&self, month: usize) -> Option<f32> {
+        self.monthly_data[month].average()
+    }
+
     pub fn none_count(&self) -> usize {
         let mut out = 0;
         for month in self.monthly_data.iter() {
