@@ -1,9 +1,15 @@
+use bincode::{deserialize_from, serialize_into};
 use data::CSum;
 use glium::backend::glutin::Display;
 use glium::texture::{texture2d::Texture2d, RawImage2d};
 use math::{Range, RectIter};
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
+use std::error::Error;
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
 use std::ops::{Index, IndexMut};
+use std::path::Path;
 
 // Top left value will be stored first and the data will be separated by each horizontal layer
 // Eg. [1 2 3 4 5] = [1 2 3 4 5 1 2 3 4 5]
@@ -63,6 +69,25 @@ impl<T: Copy> Grid<T> {
             grid_values.push(func(value));
         }
         Grid::new_from_values(self.horizontal, self.vertical, grid_values)
+    }
+}
+
+impl<T: Copy + Serialize> Grid<T>
+where
+    for<'de> T: Deserialize<'de>,
+{
+    pub fn save_to_bin(&self, path: impl AsRef<Path>) -> Result<(), Box<Error>> {
+        let file = File::create(path)?;
+        let writer = BufWriter::new(file);
+        serialize_into(writer, &self)?;
+        Ok(())
+    }
+
+    pub fn load_from_bin(path: impl AsRef<Path>) -> Result<Self, Box<Error>> {
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        let grid = deserialize_from(reader)?;
+        Ok(grid)
     }
 }
 

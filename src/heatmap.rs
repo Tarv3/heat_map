@@ -146,10 +146,7 @@ impl HeatMap<YearlyData<f32>> {
         let values: Vec<TemperaturePoint> = deserialize_from(file)?;
         let mut temp_grid = Self::new_temperature_grid(dimensions, range);
 
-        for (i, result) in values.iter().enumerate() {
-            if i % 1000000 == 0 {
-                println!("{}", i);
-            }
+        for result in values {
             temp_grid.add_temperature_point(&result);
         }
         Ok(temp_grid)
